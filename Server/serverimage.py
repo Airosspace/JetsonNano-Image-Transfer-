@@ -1,51 +1,45 @@
 import socket
 import struct
 
-def receive_image(save_path, server_ip, server_port):
-    
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Server configuration
+HOST = '127.0.0.1'  # Server IP address
+PORT = 1234        # Server port number
 
-    try:
-        
-        server_socket.bind((server_ip, server_port))
+# Create a socket object
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        
-        server_socket.listen(1)
-        print("Server is listening on {}:{}".format(server_ip, server_port))
+# Bind the socket to a specific address and port
+server_socket.bind((HOST, PORT))
 
-        
-        client_socket, client_address = server_socket.accept()
-        print("Connected to client:", client_address)
+# Listen for incoming connections
+server_socket.listen(1)
 
-        
-        size_data = client_socket.recv(4)
-        image_size = struct.unpack("!I", size_data)[0]
+print('Server is listening on {}:{}'.format(HOST, PORT))
 
-        
-        image_data = b""
-        remaining_bytes = image_size
-        while remaining_bytes > 0:
-            chunk = client_socket.recv(min(4096, remaining_bytes))
-            if not chunk:
-                break
-            image_data += chunk
-            remaining_bytes -= len(chunk)
-        with open(save_path,"wb") as file:
-            file.write(image_data)
-        print("Image received and saved successfully")
-    except Exception as e:
-        print("Error:", e)
-    finally:
-        
-        server_socket.close()
-        print("Server socket closed")
-i=1
-while(0<1):
-    save_path = f"rimages/received_image{i}.jpeg"
-    #server_ip = "192.168.92.246" 
-    server_ip="172.16.4.152" 
-    server_port = 5500 
+while True:
+    # Accept a client connection
+    client_socket, client_address = server_socket.accept()
+    print('Connected to client:', client_address)
 
+    # Receive the filename from the client
+    filename_length = struct.unpack('!I', client_socket.recv(4))[0]
+    filename = client_socket.recv(filename_length).decode()
+    print('Received filename:', filename)
 
-    receive_image(save_path, server_ip, server_port)
-    i+=1
+    # Receive the image size from the client
+    image_size = struct.unpack('!Q', client_socket.recv(8))[0]
+    print('Received image size:', image_size)
+
+    # Receive the image data from the client
+    image_data = b''
+    while len(image_data) < image_size:
+        remaining = image_size - len(image_data)
+        image_data += client_socket.recv(min(4096, remaining))
+
+    # Save the image file
+    with open(f"r/{filename}", 'wb') as file:
+        file.write(image_data)
+        print('Image file saved:', filename)
+
+    # Close the client connection
+    client_socket.close()
